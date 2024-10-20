@@ -194,9 +194,11 @@ func update() {
 		if rl.IsKeyPressed(rl.KeySpace) {
 			state.bullets = append(state.bullets, Bullet{
 				pos: rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
-				vel: rl.Vector2Scale(shipDir, 7.0),
+				vel: rl.Vector2Scale(shipDir, 8.0),
 				ttl: 2.0,
 			})
+
+			state.ship.vel = rl.Vector2Add(state.ship.vel, rl.Vector2Scale(shipDir, -0.7))
 		}
 	}
 
