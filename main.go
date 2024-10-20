@@ -18,9 +18,14 @@ const (
 var SIZE = rl.NewVector2(640*1.2, 480*1.2)
 
 type Ship struct {
-	pos rl.Vector2
-	vel rl.Vector2
-	rot float32
+	pos       rl.Vector2
+	vel       rl.Vector2
+	rot       float32
+	deathTime float32
+}
+
+func (s Ship) isDead() bool {
+	return s.deathTime != 0.0
 }
 
 type Asteroid struct {
@@ -35,15 +40,35 @@ type State struct {
 	delta     float32
 	ship      Ship
 	asteroids []Asteroid
+	particles []Particle
+}
+
+type ParticleType int
+
+const (
+	LINE ParticleType = iota
+	DOT
+)
+
+type Particle struct {
+	pos rl.Vector2
+	vel rl.Vector2
+	ttl float32
+
+	pType  ParticleType
+	rot    float32
+	len    float32
+	radius float32
 }
 
 var state = State{
 	now:   0.0,
 	delta: 0.0,
 	ship: Ship{
-		pos: rl.Vector2Scale(SIZE, 0.5),
-		vel: rl.NewVector2(0, 0),
-		rot: 0.0,
+		pos:       rl.Vector2Scale(SIZE, 0.5),
+		vel:       rl.NewVector2(0, 0),
+		rot:       0.0,
+		deathTime: 0.0,
 	},
 	asteroids: []Asteroid{},
 }
@@ -77,11 +102,23 @@ const (
 func (s AsteroidSize) size() float32 {
 	switch s {
 	case SMALL:
-		return SCALE * 0.8
+		return SCALE * 0.9
 	case MEDIUM:
-		return SCALE * 1.6
+		return SCALE * 1.5
 	case BIG:
 		return SCALE * 3.0
+	}
+	return 0.0
+}
+
+func (s AsteroidSize) collisionScale() float32 {
+	switch s {
+	case SMALL:
+		return 1.0
+	case MEDIUM:
+		return 0.8
+	case BIG:
+		return 0.5
 	}
 	return 0.0
 }
@@ -116,31 +153,33 @@ func drawAsteroid(pos rl.Vector2, s AsteroidSize, seed int64) {
 }
 
 func update() {
-	if rl.IsKeyDown(rl.KeyRight) {
-		state.ship.rot += state.delta * ROT_SPEED * math.Pi * 2
-	} else if rl.IsKeyDown(rl.KeyLeft) {
-		state.ship.rot -= state.delta * ROT_SPEED * math.Pi * 2
+	if !state.ship.isDead() {
+		if rl.IsKeyDown(rl.KeyRight) {
+			state.ship.rot += state.delta * ROT_SPEED * math.Pi * 2
+		} else if rl.IsKeyDown(rl.KeyLeft) {
+			state.ship.rot -= state.delta * ROT_SPEED * math.Pi * 2
+		}
+
+		dirAngle := state.ship.rot + math.Pi*0.5
+		shipDir := rl.NewVector2(float32(math.Cos(float64(dirAngle))), float32(math.Sin(float64(dirAngle))))
+
+		if rl.IsKeyDown(rl.KeyUp) {
+			state.ship.vel = rl.Vector2Add(state.ship.vel, rl.Vector2Scale(shipDir, SHIP_SPEED*state.delta))
+		}
+
+		state.ship.vel = rl.Vector2Scale(state.ship.vel, 1-DRAG*state.delta)
+
+		if state.ship.pos.X < 0 {
+			state.ship.pos.X = SIZE.X
+		} else if state.ship.pos.X > SIZE.X {
+			state.ship.pos.X = 0
+		} else if state.ship.pos.Y < 0 {
+			state.ship.pos.Y = SIZE.Y
+		} else if state.ship.pos.Y > SIZE.Y {
+			state.ship.pos.Y = 0
+		}
+		state.ship.pos = rl.Vector2Add(state.ship.pos, state.ship.vel)
 	}
-
-	dirAngle := state.ship.rot + math.Pi*0.5
-	shipDir := rl.NewVector2(float32(math.Cos(float64(dirAngle))), float32(math.Sin(float64(dirAngle))))
-
-	if rl.IsKeyDown(rl.KeyUp) {
-		state.ship.vel = rl.Vector2Add(state.ship.vel, rl.Vector2Scale(shipDir, SHIP_SPEED*state.delta))
-	}
-
-	state.ship.vel = rl.Vector2Scale(state.ship.vel, 1-DRAG*state.delta)
-
-	if state.ship.pos.X < 0 {
-		state.ship.pos.X = SIZE.X
-	} else if state.ship.pos.X > SIZE.X {
-		state.ship.pos.X = 0
-	} else if state.ship.pos.Y < 0 {
-		state.ship.pos.Y = SIZE.Y
-	} else if state.ship.pos.Y > SIZE.Y {
-		state.ship.pos.Y = 0
-	}
-	state.ship.pos = rl.Vector2Add(state.ship.pos, state.ship.vel)
 
 	for i := 0; i < len(state.asteroids); i++ {
 		asteroid := &state.asteroids[i]
@@ -155,32 +194,81 @@ func update() {
 		} else if asteroid.pos.Y > SIZE.Y {
 			asteroid.pos.Y = 0
 		}
+
+		if !state.ship.isDead() && rl.Vector2Distance(asteroid.pos, state.ship.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
+			state.ship.deathTime = state.now
+
+			for i := 0; i < 5; i++ {
+				angle := 2 * math.Pi * rand.Float32()
+				state.particles = append(state.particles, Particle{
+					pos:    rl.Vector2Add(state.ship.pos, rl.NewVector2(rand.Float32()*3, rand.Float32()*3)),
+					vel:    rl.Vector2Scale(rl.NewVector2(float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))), 2*rand.Float32()),
+					ttl:    3 + rand.Float32(),
+					pType:  LINE,
+					rot:    angle,
+					len:    SCALE * (0.6 + (0.4 * rand.Float32())),
+					radius: 0,
+				})
+			}
+		}
+	}
+
+	for i := 0; i < len(state.particles); i++ {
+		particle := &state.particles[i]
+		particle.pos = rl.Vector2Add(particle.pos, particle.vel)
+
+		if particle.ttl > state.delta {
+			particle.ttl -= state.delta
+		} else {
+			state.particles = append(state.particles[:i], state.particles[i+1:]...)
+			i--
+		}
+	}
+
+	if state.ship.isDead() && state.now-state.ship.deathTime > 3.0 {
+		resetGame()
 	}
 }
 
 func render() {
-	drawLines(state.ship.pos, SCALE, state.ship.rot, []rl.Vector2{
-		rl.NewVector2(-0.4, -0.5),
-		rl.NewVector2(0.0, 0.5),
-		rl.NewVector2(0.4, -0.5),
-		rl.NewVector2(0.3, -0.4),
-		rl.NewVector2(-0.3, -0.4),
-	})
-
-	if int(state.now*20)%2 == 0 && rl.IsKeyDown(rl.KeyUp) {
+	if !state.ship.isDead() {
 		drawLines(state.ship.pos, SCALE, state.ship.rot, []rl.Vector2{
-			rl.NewVector2(-0.3, -0.4),
-			rl.NewVector2(0.0, -0.73),
+			rl.NewVector2(-0.4, -0.5),
+			rl.NewVector2(0.0, 0.5),
+			rl.NewVector2(0.4, -0.5),
 			rl.NewVector2(0.3, -0.4),
+			rl.NewVector2(-0.3, -0.4),
 		})
+
+		if int(state.now*20)%2 == 0 && rl.IsKeyDown(rl.KeyUp) {
+			drawLines(state.ship.pos, SCALE, state.ship.rot, []rl.Vector2{
+				rl.NewVector2(-0.3, -0.4),
+				rl.NewVector2(0.0, -0.73),
+				rl.NewVector2(0.3, -0.4),
+			})
+		}
 	}
 
 	for _, asteroid := range state.asteroids {
 		drawAsteroid(asteroid.pos, asteroid.size, asteroid.seed)
 	}
+
+	for _, particle := range state.particles {
+		switch particle.pType {
+		case LINE:
+			drawLines(particle.pos, particle.len, particle.rot, []rl.Vector2{
+				rl.NewVector2(-0.5, 0),
+				rl.NewVector2(0.5, 0),
+			})
+		case DOT:
+			rl.DrawCircleV(particle.pos, particle.radius, rl.White)
+		}
+	}
 }
 
-func initLevel() {
+func resetAsteroids() {
+	state.asteroids = []Asteroid{}
+
 	for i := 0; i < 20; i++ {
 		angle := 2 * math.Pi * rand.Float64()
 		size := AsteroidSize(rand.Intn(3))
@@ -193,13 +281,23 @@ func initLevel() {
 	}
 }
 
+func resetGame() {
+	state.ship.deathTime = 0.0
+	state.ship = Ship{
+		pos: rl.Vector2Scale(SIZE, 0.5),
+		vel: rl.NewVector2(0, 0),
+		rot: 0.0,
+	}
+}
+
 func main() {
 	rl.InitWindow(int32(SIZE.X), int32(SIZE.Y), "Asteroids Game")
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(60)
 
-	initLevel()
+	resetGame()
+	resetAsteroids()
 
 	for !rl.WindowShouldClose() {
 		state.delta = rl.GetFrameTime()
