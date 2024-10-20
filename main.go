@@ -15,7 +15,7 @@ const (
 	DRAG       = 0.3
 )
 
-var SIZE = rl.NewVector2(640*1.2, 480*1.2)
+var SIZE = rl.NewVector2(640*1.5, 480*1.5)
 
 type Ship struct {
 	pos       rl.Vector2
@@ -64,9 +64,10 @@ type Particle struct {
 }
 
 type Bullet struct {
-	pos rl.Vector2
-	vel rl.Vector2
-	ttl float32
+	pos    rl.Vector2
+	vel    rl.Vector2
+	ttl    float32
+	remove bool
 }
 
 var state = State{
@@ -194,7 +195,7 @@ func update() {
 			state.bullets = append(state.bullets, Bullet{
 				pos: rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
 				vel: rl.Vector2Scale(shipDir, 7.0),
-				ttl: 1.5,
+				ttl: 2.0,
 			})
 		}
 	}
@@ -230,6 +231,14 @@ func update() {
 			}
 		}
 
+		for j := 0; j < len(state.bullets); j++ {
+			bullet := &state.bullets[j]
+			if !bullet.remove && rl.Vector2Distance(asteroid.pos, bullet.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
+				bullet.remove = true
+				hitAsteroid(asteroid, rl.Vector2Normalize(bullet.vel))
+			}
+		}
+
 		if asteroid.remove {
 			state.asteroids = append(state.asteroids[:i], state.asteroids[i+1:]...)
 			i--
@@ -262,7 +271,7 @@ func update() {
 			bullet.pos.Y = 0
 		}
 
-		if bullet.ttl > state.delta {
+		if !bullet.remove && bullet.ttl > state.delta {
 			bullet.ttl -= state.delta
 		} else {
 			state.bullets = append(state.bullets[:i], state.bullets[i+1:]...)
@@ -315,10 +324,38 @@ func render() {
 	}
 }
 
+func hitAsteroid(a *Asteroid, impact rl.Vector2) {
+	a.remove = true
+
+	if a.size == SMALL {
+		return
+	}
+
+	for i := 0; i < 2; i++ {
+		dir := rl.Vector2Normalize(a.vel)
+		size := func() AsteroidSize {
+			switch a.size {
+			case BIG:
+				return MEDIUM
+			case MEDIUM:
+				return SMALL
+			default:
+				return SMALL
+			}
+		}()
+		state.asteroids = append(state.asteroids, Asteroid{
+			pos:  a.pos,
+			vel:  rl.Vector2Add(rl.Vector2Scale(dir, a.size.velocity()*3*rand.Float32()), rl.Vector2Scale(impact, 1.5)),
+			size: size,
+			seed: rand.Int63(),
+		})
+	}
+}
+
 func resetAsteroids() {
 	state.asteroids = []Asteroid{}
 
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 20; i++ {
 		angle := 2 * math.Pi * rand.Float64()
 		size := AsteroidSize(rand.Intn(3))
 		state.asteroids = append(state.asteroids, Asteroid{
