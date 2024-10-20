@@ -329,6 +329,19 @@ func render() {
 func hitAsteroid(a *Asteroid, impact rl.Vector2) {
 	a.remove = true
 
+	for i := 0; i < 10; i++ {
+		angle := 2 * math.Pi * rand.Float32()
+		state.particles = append(state.particles, Particle{
+			pos:    rl.Vector2Add(a.pos, rl.NewVector2(rand.Float32()*3, rand.Float32()*3)),
+			vel:    rl.Vector2Scale(rl.NewVector2(float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))), 2.0+(4.0*rand.Float32())),
+			ttl:    0.6 + (0.4 * rand.Float32()),
+			pType:  DOT,
+			rot:    0,
+			len:    0,
+			radius: SCALE * 0.025,
+		})
+	}
+
 	if a.size == SMALL {
 		return
 	}
