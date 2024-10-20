@@ -29,10 +29,11 @@ func (s Ship) isDead() bool {
 }
 
 type Asteroid struct {
-	pos  rl.Vector2
-	vel  rl.Vector2
-	size AsteroidSize
-	seed int64
+	pos    rl.Vector2
+	vel    rl.Vector2
+	size   AsteroidSize
+	seed   int64
+	remove bool
 }
 
 type State struct {
@@ -41,6 +42,7 @@ type State struct {
 	ship      Ship
 	asteroids []Asteroid
 	particles []Particle
+	bullets   []Bullet
 }
 
 type ParticleType int
@@ -61,6 +63,12 @@ type Particle struct {
 	radius float32
 }
 
+type Bullet struct {
+	pos rl.Vector2
+	vel rl.Vector2
+	ttl float32
+}
+
 var state = State{
 	now:   0.0,
 	delta: 0.0,
@@ -71,6 +79,8 @@ var state = State{
 		deathTime: 0.0,
 	},
 	asteroids: []Asteroid{},
+	particles: []Particle{},
+	bullets:   []Bullet{},
 }
 
 type Transformer struct {
@@ -179,6 +189,14 @@ func update() {
 			state.ship.pos.Y = 0
 		}
 		state.ship.pos = rl.Vector2Add(state.ship.pos, state.ship.vel)
+
+		if rl.IsKeyPressed(rl.KeySpace) {
+			state.bullets = append(state.bullets, Bullet{
+				pos: rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
+				vel: rl.Vector2Scale(shipDir, 7.0),
+				ttl: 1.5,
+			})
+		}
 	}
 
 	for i := 0; i < len(state.asteroids); i++ {
@@ -211,6 +229,11 @@ func update() {
 				})
 			}
 		}
+
+		if asteroid.remove {
+			state.asteroids = append(state.asteroids[:i], state.asteroids[i+1:]...)
+			i--
+		}
 	}
 
 	for i := 0; i < len(state.particles); i++ {
@@ -221,6 +244,28 @@ func update() {
 			particle.ttl -= state.delta
 		} else {
 			state.particles = append(state.particles[:i], state.particles[i+1:]...)
+			i--
+		}
+	}
+
+	for i := 0; i < len(state.bullets); i++ {
+		bullet := &state.bullets[i]
+		bullet.pos = rl.Vector2Add(bullet.pos, bullet.vel)
+
+		if bullet.pos.X < 0 {
+			bullet.pos.X = SIZE.X
+		} else if bullet.pos.X > SIZE.X {
+			bullet.pos.X = 0
+		} else if bullet.pos.Y < 0 {
+			bullet.pos.Y = SIZE.Y
+		} else if bullet.pos.Y > SIZE.Y {
+			bullet.pos.Y = 0
+		}
+
+		if bullet.ttl > state.delta {
+			bullet.ttl -= state.delta
+		} else {
+			state.bullets = append(state.bullets[:i], state.bullets[i+1:]...)
 			i--
 		}
 	}
@@ -264,12 +309,16 @@ func render() {
 			rl.DrawCircleV(particle.pos, particle.radius, rl.White)
 		}
 	}
+
+	for _, bullet := range state.bullets {
+		rl.DrawCircleV(bullet.pos, max(SCALE*0.06, 1), rl.White)
+	}
 }
 
 func resetAsteroids() {
 	state.asteroids = []Asteroid{}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 15; i++ {
 		angle := 2 * math.Pi * rand.Float64()
 		size := AsteroidSize(rand.Intn(3))
 		state.asteroids = append(state.asteroids, Asteroid{
