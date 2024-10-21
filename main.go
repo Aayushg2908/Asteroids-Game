@@ -43,6 +43,9 @@ type State struct {
 	asteroids []Asteroid
 	particles []Particle
 	bullets   []Bullet
+	lives     int
+	score     int
+	reset     bool
 }
 
 type ParticleType int
@@ -82,6 +85,9 @@ var state = State{
 	asteroids: []Asteroid{},
 	particles: []Particle{},
 	bullets:   []Bullet{},
+	lives:     3,
+	score:     0,
+	reset:     false,
 }
 
 type Transformer struct {
@@ -164,6 +170,11 @@ func drawAsteroid(pos rl.Vector2, s AsteroidSize, seed int64) {
 }
 
 func update() {
+	if state.reset {
+		state.reset = false
+		resetGame()
+	}
+
 	if !state.ship.isDead() {
 		if rl.IsKeyDown(rl.KeyRight) {
 			state.ship.rot += state.delta * ROT_SPEED * math.Pi * 2
@@ -224,13 +235,15 @@ func update() {
 				state.particles = append(state.particles, Particle{
 					pos:    rl.Vector2Add(state.ship.pos, rl.NewVector2(rand.Float32()*3, rand.Float32()*3)),
 					vel:    rl.Vector2Scale(rl.NewVector2(float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))), 2*rand.Float32()),
-					ttl:    3 + rand.Float32(),
+					ttl:    2.0,
 					pType:  LINE,
 					rot:    angle,
 					len:    SCALE * (0.6 + (0.4 * rand.Float32())),
 					radius: 0,
 				})
 			}
+
+			hitAsteroid(asteroid, rl.Vector2Normalize(state.ship.vel))
 		}
 
 		for j := 0; j < len(state.bullets); j++ {
@@ -281,12 +294,22 @@ func update() {
 		}
 	}
 
-	if state.ship.isDead() && state.now-state.ship.deathTime > 3.0 {
-		resetGame()
+	if state.ship.isDead() && state.now-state.ship.deathTime > 2.0 {
+		resetStage()
 	}
 }
 
 func render() {
+	for i := 0; i < state.lives; i++ {
+		drawLines(rl.NewVector2(20+float32(i)*SCALE, 20), SCALE, -math.Pi, []rl.Vector2{
+			rl.NewVector2(-0.4, -0.5),
+			rl.NewVector2(0.0, 0.5),
+			rl.NewVector2(0.4, -0.5),
+			rl.NewVector2(0.3, -0.4),
+			rl.NewVector2(-0.3, -0.4),
+		})
+	}
+
 	if !state.ship.isDead() {
 		drawLines(state.ship.pos, SCALE, state.ship.rot, []rl.Vector2{
 			rl.NewVector2(-0.4, -0.5),
@@ -383,6 +406,20 @@ func resetAsteroids() {
 }
 
 func resetGame() {
+	state.lives = 3
+	state.score = 0
+	resetStage()
+	resetAsteroids()
+}
+
+func resetStage() {
+	if state.ship.isDead() {
+		if state.lives == 0 {
+			state.reset = true
+		} else {
+			state.lives--
+		}
+	}
 	state.ship.deathTime = 0.0
 	state.ship = Ship{
 		pos: rl.Vector2Scale(SIZE, 0.5),
@@ -398,7 +435,6 @@ func main() {
 	rl.SetTargetFPS(60)
 
 	resetGame()
-	resetAsteroids()
 
 	for !rl.WindowShouldClose() {
 		state.delta = rl.GetFrameTime()
