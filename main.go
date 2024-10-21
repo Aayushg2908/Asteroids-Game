@@ -71,6 +71,7 @@ type Bullet struct {
 	vel    rl.Vector2
 	ttl    float32
 	remove bool
+	spawn  float32
 }
 
 var state = State{
@@ -204,12 +205,35 @@ func update() {
 
 		if rl.IsKeyPressed(rl.KeySpace) {
 			state.bullets = append(state.bullets, Bullet{
-				pos: rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
-				vel: rl.Vector2Scale(shipDir, 8.0),
-				ttl: 2.0,
+				pos:   rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
+				vel:   rl.Vector2Scale(shipDir, 8.0),
+				ttl:   4.0,
+				spawn: state.now,
 			})
 
 			state.ship.vel = rl.Vector2Add(state.ship.vel, rl.Vector2Scale(shipDir, -0.7))
+		}
+
+		for i := 0; i < len(state.bullets); i++ {
+			bullet := &state.bullets[i]
+
+			if !bullet.remove && state.now-bullet.spawn > 0.05 && rl.Vector2Distance(bullet.pos, state.ship.pos) < SCALE*0.7 {
+				bullet.remove = true
+				state.ship.deathTime = state.now
+
+				for i := 0; i < 5; i++ {
+					angle := 2 * math.Pi * rand.Float32()
+					state.particles = append(state.particles, Particle{
+						pos:    rl.Vector2Add(state.ship.pos, rl.NewVector2(rand.Float32()*3, rand.Float32()*3)),
+						vel:    rl.Vector2Scale(rl.NewVector2(float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))), 2*rand.Float32()),
+						ttl:    2.0,
+						pType:  LINE,
+						rot:    angle,
+						len:    SCALE * (0.6 + (0.4 * rand.Float32())),
+						radius: 0,
+					})
+				}
+			}
 		}
 	}
 
