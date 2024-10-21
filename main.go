@@ -101,6 +101,69 @@ func (t *Transformer) apply(point rl.Vector2) rl.Vector2 {
 	return rl.Vector2Add(rl.Vector2Scale(rl.Vector2Rotate(point, t.rot), t.scale), t.org)
 }
 
+var NUMBERS = [][][]rl.Vector2{
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0.5), rl.NewVector2(-0.5, -0.5)},
+	},
+	{
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0)},
+		{rl.NewVector2(0.5, 0), rl.NewVector2(-0.5, 0)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0.5), rl.NewVector2(0.5, 0.5)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(0.5, 0)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(-0.5, 0)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(0.5, 0)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+	},
+	{
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(-0.5, -0.5)},
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(-0.5, 0)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(0.5, 0)},
+		{rl.NewVector2(0.5, 0), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(-0.5, 0.5)},
+	},
+	{
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(-0.5, -0.5)},
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0.5), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(0.5, 0)},
+		{rl.NewVector2(0.5, 0), rl.NewVector2(-0.5, 0)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0.5), rl.NewVector2(-0.5, -0.5)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(0.5, 0)},
+	},
+	{
+		{rl.NewVector2(-0.5, -0.5), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(0.5, -0.5), rl.NewVector2(0.5, 0.5)},
+		{rl.NewVector2(0.5, 0.5), rl.NewVector2(-0.5, 0.5)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(0.5, 0)},
+		{rl.NewVector2(0.5, 0), rl.NewVector2(0.5, -0.5)},
+		{rl.NewVector2(-0.5, 0), rl.NewVector2(-0.5, -0.5)},
+	},
+}
+
 func drawLines(org rl.Vector2, scale float32, rot float32, points []rl.Vector2) {
 	transformer := Transformer{org, scale, rot}
 
