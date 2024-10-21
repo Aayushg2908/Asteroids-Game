@@ -172,6 +172,30 @@ func drawLines(org rl.Vector2, scale float32, rot float32, points []rl.Vector2) 
 	}
 }
 
+func drawNumber(score int, pos rl.Vector2) {
+	val := score
+	digits := []int{}
+
+	for val > 0 {
+		digits = append(digits, val%10)
+		val /= 10
+	}
+
+	pos.X -= SCALE * 1.1 * float32(len(digits))
+	for i := len(digits) - 1; i >= 0; i-- {
+		for _, line := range NUMBERS[digits[i]] {
+			drawLines(pos, 25, 0, line)
+		}
+		pos.X += SCALE * 1.1
+	}
+
+	if len(digits) == 0 {
+		for _, line := range NUMBERS[0] {
+			drawLines(pos, SCALE, 0, line)
+		}
+	}
+}
+
 type AsteroidSize int
 
 const (
@@ -190,6 +214,18 @@ func (s AsteroidSize) size() float32 {
 		return SCALE * 3.0
 	}
 	return 0.0
+}
+
+func (s AsteroidSize) score() int {
+	switch s {
+	case SMALL:
+		return 100
+	case MEDIUM:
+		return 50
+	case BIG:
+		return 20
+	}
+	return 0
 }
 
 func (s AsteroidSize) collisionScale() float32 {
@@ -270,7 +306,7 @@ func update() {
 			state.bullets = append(state.bullets, Bullet{
 				pos:   rl.Vector2Add(state.ship.pos, rl.Vector2Scale(shipDir, SCALE*0.5)),
 				vel:   rl.Vector2Scale(shipDir, 8.0),
-				ttl:   4.0,
+				ttl:   2.0,
 				spawn: state.now,
 			})
 
@@ -397,6 +433,8 @@ func render() {
 		})
 	}
 
+	drawNumber(state.score, rl.NewVector2(SIZE.X-SCALE, SCALE))
+
 	if !state.ship.isDead() {
 		drawLines(state.ship.pos, SCALE, state.ship.rot, []rl.Vector2{
 			rl.NewVector2(-0.4, -0.5),
@@ -437,6 +475,7 @@ func render() {
 }
 
 func hitAsteroid(a *Asteroid, impact rl.Vector2) {
+	state.score += a.size.score()
 	a.remove = true
 
 	for i := 0; i < 10; i++ {
