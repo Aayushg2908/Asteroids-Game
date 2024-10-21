@@ -36,6 +36,22 @@ type Asteroid struct {
 	remove bool
 }
 
+type AlienSize int
+
+const (
+	TINY AlienSize = iota
+	HUGE
+)
+
+type Alien struct {
+	pos      rl.Vector2
+	dir      rl.Vector2
+	size     AlienSize
+	remove   bool
+	lastShot float32
+	lastDir  float32
+}
+
 type State struct {
 	now       float32
 	delta     float32
@@ -43,6 +59,7 @@ type State struct {
 	asteroids []Asteroid
 	particles []Particle
 	bullets   []Bullet
+	aliens    []Alien
 	lives     int
 	score     int
 	reset     bool
@@ -350,7 +367,7 @@ func update() {
 			asteroid.pos.Y = 0
 		}
 
-		if !state.ship.isDead() && rl.Vector2Distance(asteroid.pos, state.ship.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
+		if !state.ship.isDead() && state.now-state.ship.deathTime > 0.05 && rl.Vector2Distance(asteroid.pos, state.ship.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
 			state.ship.deathTime = state.now
 
 			for i := 0; i < 5; i++ {
@@ -367,6 +384,15 @@ func update() {
 			}
 
 			hitAsteroid(asteroid, rl.Vector2Normalize(state.ship.vel))
+		}
+
+		for j := 0; j < len(state.aliens); j++ {
+			alien := &state.aliens[j]
+
+			if !alien.remove && rl.Vector2Distance(asteroid.pos, alien.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
+				alien.remove = true
+				hitAsteroid(asteroid, rl.Vector2Normalize(rl.Vector2Subtract(asteroid.pos, alien.pos)))
+			}
 		}
 
 		for j := 0; j < len(state.bullets); j++ {
@@ -417,9 +443,135 @@ func update() {
 		}
 	}
 
+	for i := 0; i < len(state.aliens); i++ {
+		alien := &state.aliens[i]
+		size := func() float32 {
+			switch alien.size {
+			case TINY:
+				return SCALE * 0.5
+			case HUGE:
+				return SCALE * 0.8
+			}
+			return 0.0
+		}()
+
+		for j := 0; j < len(state.bullets); j++ {
+			bullet := &state.bullets[j]
+			if !bullet.remove && state.now-bullet.spawn > 0.05 && rl.Vector2Distance(alien.pos, bullet.pos) < size {
+				bullet.remove = true
+				alien.remove = true
+			}
+		}
+
+		if !alien.remove && rl.Vector2Distance(alien.pos, state.ship.pos) < size {
+			alien.remove = true
+			state.ship.deathTime = state.now
+		}
+
+		if !alien.remove {
+			dirChangeTime := func() float32 {
+				switch alien.size {
+				case TINY:
+					return 0.35
+				case HUGE:
+					return 0.85
+				}
+				return 0.0
+			}()
+
+			shotTime := func() float32 {
+				switch alien.size {
+				case TINY:
+					return 0.75
+				case HUGE:
+					return 1.25
+				}
+				return 0.0
+			}()
+
+			speed := func() float32 {
+				switch alien.size {
+				case TINY:
+					return 6
+				case HUGE:
+					return 3
+				}
+				return 0.0
+			}()
+
+			if state.now-alien.lastDir > dirChangeTime {
+				alien.lastDir = state.now
+				angle := 2 * math.Pi * rand.Float32()
+				alien.dir = rl.NewVector2(float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle))))
+			}
+
+			alien.pos = rl.Vector2Add(alien.pos, rl.Vector2Scale(alien.dir, speed))
+			if alien.pos.X < 0 {
+				alien.pos.X = SIZE.X
+			} else if alien.pos.X > SIZE.X {
+				alien.pos.X = 0
+			} else if alien.pos.Y < 0 {
+				alien.pos.Y = SIZE.Y
+			} else if alien.pos.Y > SIZE.Y {
+				alien.pos.Y = 0
+			}
+
+			if state.now-alien.lastShot > shotTime {
+				alien.lastShot = state.now
+				dir := rl.Vector2Normalize(rl.Vector2Subtract(state.ship.pos, alien.pos))
+
+				state.bullets = append(state.bullets, Bullet{
+					pos:   rl.Vector2Add(alien.pos, rl.Vector2Scale(dir, SCALE*0.5)),
+					vel:   rl.Vector2Scale(dir, 6.0),
+					ttl:   2.0,
+					spawn: state.now,
+				})
+			}
+		}
+
+		if alien.remove {
+			state.aliens = append(state.aliens[:i], state.aliens[i+1:]...)
+			i--
+		}
+	}
+
 	if state.ship.isDead() && state.now-state.ship.deathTime > 2.0 {
 		resetStage()
 	}
+
+	if len(state.asteroids) == 0 {
+		resetAsteroids()
+	}
+}
+
+func drawAlien(pos rl.Vector2, size AlienSize) {
+	scale := func() float32 {
+		switch size {
+		case TINY:
+			return SCALE * 0.8
+		case HUGE:
+			return SCALE * 1.3
+		}
+		return 0.0
+	}()
+
+	drawLines(pos, scale, 0, []rl.Vector2{
+		rl.NewVector2(-0.5, 0.0),
+		rl.NewVector2(-0.3, -0.3),
+		rl.NewVector2(0.3, -0.3),
+		rl.NewVector2(0.5, 0.0),
+		rl.NewVector2(0.3, 0.3),
+		rl.NewVector2(-0.3, 0.3),
+		rl.NewVector2(-0.5, 0.0),
+		rl.NewVector2(0.5, 0.0),
+	})
+
+	drawLines(pos, scale, 0, []rl.Vector2{
+		rl.NewVector2(-0.2, -0.3),
+		rl.NewVector2(-0.1, -0.5),
+		rl.NewVector2(0.1, -0.5),
+		rl.NewVector2(0.2, -0.3),
+	})
 }
 
 func render() {
@@ -455,6 +607,10 @@ func render() {
 
 	for _, asteroid := range state.asteroids {
 		drawAsteroid(asteroid.pos, asteroid.size, asteroid.seed)
+	}
+
+	for _, alien := range state.aliens {
+		drawAlien(alien.pos, alien.size)
 	}
 
 	for _, particle := range state.particles {
@@ -546,11 +702,36 @@ func resetStage() {
 			state.lives--
 		}
 	}
+
 	state.ship.deathTime = 0.0
 	state.ship = Ship{
 		pos: rl.Vector2Scale(SIZE, 0.5),
 		vel: rl.NewVector2(0, 0),
 		rot: 0.0,
+	}
+
+	random := rand.Intn(2)
+	randomEntry := func() float32 {
+		if random == 0 {
+			return SCALE
+		} else {
+			return SIZE.X - SCALE
+		}
+	}()
+	randomSize := func() AlienSize {
+		if random == 0 {
+			return HUGE
+		} else {
+			return TINY
+		}
+	}()
+	for i := 0; i < 2; i++ {
+		state.aliens = append(state.aliens, Alien{
+			pos:    rl.NewVector2(randomEntry, rand.Float32()*SIZE.Y),
+			dir:    rl.NewVector2(0, 0),
+			size:   randomSize,
+			remove: false,
+		})
 	}
 }
 
