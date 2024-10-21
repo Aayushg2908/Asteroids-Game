@@ -11,7 +11,7 @@ const (
 	THICKNESS  = 2.0
 	SCALE      = 30.0
 	ROT_SPEED  = 1.3
-	SHIP_SPEED = 25
+	SHIP_SPEED = 20
 	DRAG       = 0.3
 )
 
@@ -541,22 +541,6 @@ func update() {
 
 	if len(state.asteroids) == 0 && len(state.aliens) == 0 {
 		resetAsteroids()
-	}
-
-	if state.score%5000 == 0 && state.score != 0 {
-		state.aliens = append(state.aliens, Alien{
-			pos:  rl.NewVector2(SIZE.X/2, SIZE.Y/2),
-			dir:  rl.NewVector2(0, 0),
-			size: HUGE,
-		})
-	}
-
-	if state.score%8000 == 0 && state.score != 0 {
-		state.aliens = append(state.aliens, Alien{
-			pos:  rl.NewVector2(SIZE.X/2, SIZE.Y/2),
-			dir:  rl.NewVector2(0, 0),
-			size: TINY,
-		})
 	}
 }
 
