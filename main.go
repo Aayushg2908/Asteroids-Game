@@ -260,11 +260,11 @@ func (s AsteroidSize) collisionScale() float32 {
 func (s AsteroidSize) velocity() float32 {
 	switch s {
 	case SMALL:
-		return 1.8
+		return 1.5
 	case MEDIUM:
-		return 1.4
+		return 1.1
 	case BIG:
-		return 0.8
+		return 0.7
 	}
 	return 0.0
 }
@@ -367,7 +367,7 @@ func update() {
 			asteroid.pos.Y = 0
 		}
 
-		if !state.ship.isDead() && state.now-state.ship.deathTime > 0.05 && rl.Vector2Distance(asteroid.pos, state.ship.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
+		if !state.ship.isDead() && state.now-state.ship.deathTime > 0.10 && rl.Vector2Distance(asteroid.pos, state.ship.pos) < asteroid.size.size()*asteroid.size.collisionScale() {
 			state.ship.deathTime = state.now
 
 			for i := 0; i < 5; i++ {
@@ -539,8 +539,24 @@ func update() {
 		resetStage()
 	}
 
-	if len(state.asteroids) == 0 {
+	if len(state.asteroids) == 0 && len(state.aliens) == 0 {
 		resetAsteroids()
+	}
+
+	if state.score%5000 == 0 && state.score != 0 {
+		state.aliens = append(state.aliens, Alien{
+			pos:  rl.NewVector2(SIZE.X/2, SIZE.Y/2),
+			dir:  rl.NewVector2(0, 0),
+			size: HUGE,
+		})
+	}
+
+	if state.score%8000 == 0 && state.score != 0 {
+		state.aliens = append(state.aliens, Alien{
+			pos:  rl.NewVector2(SIZE.X/2, SIZE.Y/2),
+			dir:  rl.NewVector2(0, 0),
+			size: TINY,
+		})
 	}
 }
 
@@ -675,7 +691,7 @@ func hitAsteroid(a *Asteroid, impact rl.Vector2) {
 func resetAsteroids() {
 	state.asteroids = []Asteroid{}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 20+state.score/2000; i++ {
 		angle := 2 * math.Pi * rand.Float64()
 		size := AsteroidSize(rand.Intn(3))
 		state.asteroids = append(state.asteroids, Asteroid{
@@ -718,21 +734,12 @@ func resetStage() {
 			return SIZE.X - SCALE
 		}
 	}()
-	randomSize := func() AlienSize {
-		if random == 0 {
-			return HUGE
-		} else {
-			return TINY
-		}
-	}()
-	for i := 0; i < 2; i++ {
-		state.aliens = append(state.aliens, Alien{
-			pos:    rl.NewVector2(randomEntry, rand.Float32()*SIZE.Y),
-			dir:    rl.NewVector2(0, 0),
-			size:   randomSize,
-			remove: false,
-		})
-	}
+	state.aliens = append(state.aliens, Alien{
+		pos:    rl.NewVector2(randomEntry, rand.Float32()*SIZE.Y),
+		dir:    rl.NewVector2(0, 0),
+		size:   HUGE,
+		remove: false,
+	})
 }
 
 func main() {
