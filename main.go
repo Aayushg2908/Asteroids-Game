@@ -710,20 +710,29 @@ func resetStage() {
 		rot: 0.0,
 	}
 
-	random := rand.Intn(2)
-	randomEntry := func() float32 {
-		if random == 0 {
-			return SCALE
-		} else {
-			return SIZE.X - SCALE
-		}
-	}()
-	state.aliens = append(state.aliens, Alien{
-		pos:    rl.NewVector2(randomEntry, rand.Float32()*SIZE.Y),
-		dir:    rl.NewVector2(0, 0),
-		size:   HUGE,
-		remove: false,
-	})
+	for i := 0; i < 2; i++ {
+		random := rand.Intn(2)
+		randomEntry := func() float32 {
+			if random == 0 {
+				return SCALE
+			} else {
+				return SIZE.X - SCALE
+			}
+		}()
+		size := func() AlienSize {
+			if random == 0 {
+				return TINY
+			} else {
+				return HUGE
+			}
+		}()
+		state.aliens = append(state.aliens, Alien{
+			pos:    rl.NewVector2(randomEntry, rand.Float32()*SIZE.Y),
+			dir:    rl.NewVector2(0, 0),
+			size:   size,
+			remove: false,
+		})
+	}
 }
 
 func main() {
